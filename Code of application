@@ -1,0 +1,454 @@
+import tkinter as tk
+from tkinter import messagebox, filedialog, PhotoImage
+import sqlite3
+from PIL import ImageTk, Image
+from datetime import datetime
+import tkinter.colorchooser as colorchooser
+
+#Create a connection to database
+conn = sqlite3.connect("MyJournal.db")
+cur = conn.cursor()
+#CReate user, entries and todo_list tables in database
+def create_user_table():
+    cur.execute("CREATE TABLE IF NOT EXISTS Users (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "username TEXT UNIQUE, password TEXT, "
+                "email TEXT, phone TEXT)")
+    print("Users table created")
+
+def create_entry_table():
+    cur.execute('''CREATE TABLE IF NOT EXISTS entries
+             (date text, day text, title text, content text, bg_color text)''')
+    print("Entries table created")
+
+    cur.execute('''CREATE TABLE IF NOT EXISTS todo_list
+             (id INTEGER PRIMARY KEY AUTOINCREMENT, task text, time text)''')
+    print("To-Do List table created")
+    
+#Function to clear all fields in registration form
+def clear_registration_fields():
+    email_var.set("")
+    phone_var.set("")
+    username_var.set("")
+    password_var.set("")
+
+#Function to handle a n user info for registration
+def register_user():
+    email = email_var.get()
+    phone = phone_var.get()
+    username = username_var.get()
+    password = password_var.get()
+#Validations for registration
+    if not (email and phone and username and password):
+        messagebox.showerror("Error", "Please fill in all the registration fields.")
+    elif len(phone) != 10 or not phone.isdigit():
+        messagebox.showerror("Error", "Please enter a valid 10-digit phone number.")
+    else:
+        try:
+            cur.execute("INSERT INTO Users (username, password, email, phone) VALUES (?, ?, ?, ?)",
+                        (username, password, email, phone))
+            conn.commit()
+            clear_registration_fields()
+            messagebox.showinfo("Success", "Registration successful!")
+            open_login_window()
+        except sqlite3.IntegrityError as e:
+            messagebox.showerror("Error", f"Username already exists. Please choose another.")
+
+#Function to handle users login details
+def login_user():
+    username = login_username_var.get()
+    password = login_password_var.get()
+# Validations for login
+    if not (username and password):
+        messagebox.showerror("Error", "Please fill in all the login fields.")
+        open_login_window()
+    else:
+        cur.execute("SELECT * FROM Users WHERE username = ? AND password = ?", (username, password))
+        user = cur.fetchone()
+
+        if user:
+            messagebox.showinfo("Success", "Login successful!")
+            open_dashboard_window()
+        else:
+            messagebox.showerror("Error", "Invalid username or password.")
+            open_login_window()
+
+def open_dashboard_window():
+    global current_user_id  # assuming have a variable to store the current user's id and allow to modify the user id     current_user_id = None  # Reset the current user id
+    current_user_id = None  # Indicates no user are currently logged in
+    
+    dashboard_window = tk.Toplevel(root)
+    dashboard_window.title("MyJournal")
+    dashboard_window.attributes('-fullscreen', True)
+    dashboard_window.configure(bg="#FFDAB9")
+    tk.Label(dashboard_window, text="MyJournal", font=("Brush Script MT", 34, "bold"), fg="Purple", bg="#FFDAB9").pack(pady=20)
+    tk.Label(dashboard_window, text="Start Journaling...!!", font=("Helvetica", 16), fg="Green", bg="#FFDAB9").pack(pady=20)
+    
+    photo = PhotoImage(file="C:/Users/Admin/Downloads/photo3.png")
+    img = photo.subsample(3, 3)  # Resize the image 
+
+    # Creating a label to display the image
+    label = tk.Label(dashboard_window, image=img)
+    label.image = img  # Keeping a reference to the image to prevent garbage collection
+    label.pack()
+
+    tk.Button(dashboard_window, text="            Write a Journal             ", font=("Helvetica", 12),bg="Yellow", fg="Black", command=open_journal_window).pack(pady=30)
+    tk.Button(dashboard_window, text="            View Entries             ", font=("Helvetica", 12), bg="Orange", fg="Black", command=open_check_entries_window).pack(pady=5)
+    tk.Button(dashboard_window, text="            To-Do List             ", font=("Helvetica", 12), bg="Purple", fg="white", command=open_todo_list_window).pack(pady=30)
+    tk.Button(dashboard_window, text="  Exit  ", font=("Helvetica", 12), bg="Dark Red", fg="white", command=root.destroy).pack(side=tk.RIGHT, anchor='s', padx=250, pady=25)
+    tk.Button(dashboard_window, text="  Logout  ", font=("Helvetica", 12), bg="Blue", fg="white", command=lambda: ( messagebox.showinfo("Logout", "You have been successfully logged out."),dashboard_window.destroy(), open_main_window())).pack(side=tk.LEFT, anchor='s', padx=250, pady=25)
+
+    # This function should take the user back to the main window
+    def open_main_window():
+        root.deiconify()
+
+def open_login_window():
+    global login_window            #Ensures the change in the window emideately accessible for all windows
+    login_window = tk.Toplevel(root)
+    login_window.title("Login")
+    login_window.attributes('-fullscreen', True)
+    login_window.configure(bg="#E6E6FA")
+
+    back_button = tk.Button(login_window, text="Back",bg="Green", fg="white", font=("Helvetica", 12), command=lambda: (login_window.destroy()))
+    back_button.pack(side=tk.LEFT, anchor='sw', padx=250, pady=25)
+
+    exit_button = tk.Button(login_window, text=" Exit ",bg="Dark Red", fg="white", font=("Helvetica", 12), command=root.destroy)
+    exit_button.pack(side=tk.RIGHT, anchor='se', padx=250, pady=25)
+
+    tk.Label(login_window, text="MyJournal", font=("Brush Script MT", 34, "bold"), fg="Purple",  bg="#E6E6FA").pack(pady=20)
+    tk.Label(login_window, text="Login Here ⬇️", font=("Helvetica", 13), bg="Black", fg="Yellow").pack(pady=20)
+    tk.Label(login_window, text="Username:", font=("Helvetica", 12), bg="#E6E6FA").pack()
+    tk.Entry(login_window, textvariable=login_username_var, width=30, font=("Helvetica", 12)).pack(pady=10)
+    tk.Label(login_window, text="Password:", font=("Helvetica", 12), bg="#E6E6FA").pack()
+    tk.Entry(login_window, textvariable=login_password_var, width=30, font=("Helvetica", 12), show="*").pack(pady=25)
+    tk.Button(login_window, text="Login", bg="blue", fg="white", font=("Helvetica", 12), command=login_user).pack(pady=30)
+
+def open_journal_window(content="", entry_index=None):
+    root.iconify()
+    global text_entry
+
+    journal_win = tk.Toplevel(root)  # Assign Toplevel to journal_win
+    journal_win.title("Journal")
+    journal_win.attributes('-fullscreen', True)
+    journal_win.configure(bg="#FFDAB9")
+
+    def choose_background_color():
+        color = colorchooser.askcolor()[1]
+        if color:
+            text_entry.config(bg=color)
+
+    def open_save_window():
+        content = text_entry.get("1.0", "end-1c").strip()     #Range of text to retrive
+        if not content:
+            messagebox.showerror("Error", "Please enter your journal content.")
+        else:
+            save_window(content, text_entry, journal_win)
+
+    label_button = tk.Label(journal_win, text="Write a Journal", font=("Footlight MT Light", 20),bg="#FFDAB9", fg="Green")
+    label_button.pack(pady=10)
+
+    back_button = tk.Button(journal_win, text="Back", font=("Helvetica", 12), bg="Green", fg="white", command=open_dashboard_window)
+    back_button.place(x=20, y=650)
+
+    bg_color_button = tk.Button(journal_win, text="Background Color", font=("Helvetica", 12), bg="Purple", fg="white", command=choose_background_color)
+    bg_color_button.place(x=600, y=650)
+
+    next_button = tk.Button(journal_win, text="Next", font=("Helvetica", 12), bg="Blue", fg="white", command=open_save_window)
+    next_button.place(x=1200, y=650)
+
+    text_entry = tk.Text(journal_win, font=("Helvetica", 12), width=120, height=30)
+    text_entry.place(x=100, y=60)
+    text_entry.insert(tk.END, content)
+
+def save_window(content, text_entry, journal_win):
+    def save_entry():
+        date = date_entry.get()
+        day = day_entry.get()
+        title = title_entry.get()
+        bg_color = text_entry.cget('bg')  # Get the current background color of the text entry widget
+
+        if not date or not day or not title:
+            messagebox.showerror("Error", "Please fill in all the fields.")
+        else:          #Inserting values in the entry table 
+            conn = sqlite3.connect('MyJournal.db')
+            cur = conn.cursor()
+            cur.execute("INSERT INTO entries (date, day, title, content, bg_color) VALUES (?, ?, ?, ?, ?)", (date, day, title, content, bg_color))
+            conn.commit()
+            conn.close()
+
+            messagebox.showinfo("Success", "Your entry is successfully saved.")
+            save_win.destroy()
+            journal_win.destroy()
+            open_dashboard_window()
+
+    save_win = tk.Toplevel(journal_win)
+    save_win.title("Save Journal")
+    save_win.attributes('-fullscreen', True)
+
+    tk.Label(save_win, text="Saving a Journal", font=("Footlight MT Light", 20), fg="Green").pack(pady=20)
+
+    date_label = tk.Label(save_win, text="Date:", font=("Helvetica", 12))
+    date_label.pack(pady=20)
+    date_entry = tk.Entry(save_win, font=("Helvetica", 12))
+    date_entry.pack(pady=0)
+    date_entry.insert(tk.END, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    day_label = tk.Label(save_win, text="Day:", font=("Helvetica", 12))
+    day_label.pack(pady=5)
+    day_entry = tk.Entry(save_win, font=("Helvetica", 12))
+    day_entry.pack(pady=5)
+    day_entry.insert(tk.END, datetime.now().strftime('%A'))
+
+    title_label = tk.Label(save_win, text="Title:", font=("Helvetica", 12))
+    title_label.pack(pady=5)
+    title_entry = tk.Entry(save_win, font=("Helvetica", 12))
+    title_entry.pack(pady=5)
+
+    save_button = tk.Button(save_win, text="Save", font=("Helvetica", 12), bg="Blue", fg="White", command=save_entry)
+    save_button.pack(pady=10)
+
+    def go_back():
+        save_win.destroy()
+        journal_win.deiconify()
+
+    back_button = tk.Button(save_win, text="Back", font=("Helvetica", 12), bg="Green", fg="White", command=go_back)
+    back_button.pack(pady=5)
+
+    save_win.mainloop()
+
+def open_check_entries_window():
+    root.iconify()
+    check_entries_window()
+
+def check_entries_window():
+    def delete_entry():
+        selected_index = listbox.curselection()
+        if selected_index:
+            entry_index = entries[selected_index[0]][0]       #Retrieves the selected entry tuple and acces the 1
+
+    def view_entry():
+        selected_index = listbox.curselection()
+        if selected_index:
+            entry_index = entries[selected_index[0]][0]
+            view_entry_window(entry_index)
+        else:
+            messagebox.showerror("Error", "Please select a journal entry.")
+
+    check_entries_win = tk.Toplevel(root)
+    check_entries_win.title("Check Entries")
+    check_entries_win.attributes('-fullscreen', True)
+    check_entries_win.configure(bg="#FFDAB9")
+
+    #To fetch eselected entries in listbox
+    conn = sqlite3.connect('MyJournal.db')
+    cur = conn.cursor()
+    cur.execute("SELECT rowid, title FROM entries")
+    global entries
+    entries = cur.fetchall()
+    conn.close()
+
+    listbox = tk.Listbox(check_entries_win, font=("Helvetica", 12), bg="Black", fg="Yellow", height=25, width=100)
+    for entry in entries:
+        listbox.insert(tk.END, f"{entry[1]}")  # Displaying only the title without the index
+    listbox.pack(pady=10)
+
+    view_button = tk.Button(check_entries_win, text=" View ",font=("Helvetica", 14), bg="Orange", fg="Black", command=view_entry)
+    view_button.pack(pady=10)
+
+    back_button = tk.Button(check_entries_win, text=" Back ", font=("Helvetica", 12), bg="Green", fg="white", command=check_entries_win.destroy)
+    back_button.pack(side=tk.LEFT, anchor='sw', padx=250, pady=25)
+
+    exit_button = tk.Button(check_entries_win, text="  Exit  ", font=("Helvetica", 12), bg="Dark Red", fg="white", command=root.destroy)
+    exit_button.pack(side=tk.RIGHT, anchor='se', padx=250, pady=25)
+
+def delete_entry_from_database(entry_index):
+    conn = sqlite3.connect('MyJournal.db')
+    cur = conn.cursor()
+    cur.execute("DELETE FROM entries WHERE rowid=?", (entry_index,))
+    conn.commit()
+    conn.close()
+
+def view_entry_window(entry_index):
+    conn = sqlite3.connect('MyJournal.db')
+    cur = conn.cursor()
+    cur.execute("SELECT title, content, bg_color FROM entries WHERE rowid=?", (entry_index,))
+    entry_data = cur.fetchone()
+    title, content, bg_color = entry_data
+
+    view_entry_win = tk.Toplevel(root)
+    view_entry_win.title(title)
+    view_entry_win.attributes('-fullscreen', True)
+
+    # Create the colored frame
+    window_frame = tk.Frame(view_entry_win, bg="#FFDAB9")
+    window_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+
+    # Create the content box with the specified background color inside the peach frame
+    content_frame = tk.Frame(window_frame, bg=bg_color)
+    content_frame.pack(expand=True, fill=tk.BOTH, padx=20, pady=20)
+
+    text_widget = tk.Text(content_frame, wrap=tk.WORD, font=("Helvetica", 12), bg=bg_color, fg="black")
+    text_widget.pack(expand=True, fill=tk.BOTH)
+    text_widget.insert(tk.END, content)
+
+    # Create the back button
+    back_button = tk.Button(window_frame, text="Back", font=("Helvetica", 12), bg="Green", fg="white", command=view_entry_win.destroy)
+    back_button.pack(side=tk.LEFT, anchor='sw', padx=250, pady=25)
+
+    # Create the delete button
+    def delete_and_open_check_entries():
+        delete_entry_from_database(entry_index)
+        messagebox.showinfo("Deleted", "You have successfully deleted a journal.")
+        view_entry_win.destroy()
+        open_check_entries_window()
+
+    delete_button = tk.Button(window_frame, text="Delete", font=("Helvetica", 12), bg="Dark Red", fg="White", command=delete_and_open_check_entries)
+    delete_button.pack(side=tk.RIGHT, anchor='se', padx=250, pady=25)
+
+    view_entry_win.mainloop()
+
+
+#Creating function for to do list
+def open_todo_list_window():
+    root.iconify()
+    todo_list_window()
+
+def todo_list_window():
+    def add_task():
+        try:
+            task = task_var.get()
+            time = time_var.get()
+            if task and time:
+                listbox.insert(tk.END, f"{len(listbox.get(0, tk.END))+1}. {time} - {task}")
+                task_var.set("")
+                time_var.set("")
+
+                # Save the task in the database
+                conn = sqlite3.connect('MyJournal.db')
+                cur = conn.cursor()
+                cur.execute("INSERT INTO todo_list (task, time) VALUES (?, ?)", (task, time))
+                conn.commit()
+                conn.close()
+
+                #Giving validations
+            else:
+                raise ValueError("Please enter a task and reminder time.")
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred while accessing the database: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    def delete_task():
+        try:
+            selected_index = listbox.curselection()
+            if selected_index:
+                # Get the task ID from the database based on the selected index
+                conn = sqlite3.connect('MyJournal.db')
+                cur = conn.cursor()
+                cur.execute("SELECT rowid FROM todo_list LIMIT 1 OFFSET ?", (selected_index[0],))
+                task_id = cur.fetchone()[0]
+
+                # Delete the task from the database
+                cur.execute("DELETE FROM todo_list WHERE rowid=?", (task_id,))
+                conn.commit()
+                conn.close()
+
+                # Delete the task from the listbox
+                listbox.delete(selected_index)
+            else:
+                raise ValueError("Please select a task to delete.")
+        except sqlite3.Error as e:
+            messagebox.showerror("Database Error", f"An error occurred while accessing the database: {e}")
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+    todo_list_win = tk.Toplevel(root)
+    todo_list_win.title("To-Do List")
+    todo_list_win.attributes('-fullscreen', True)
+    todo_list_win.configure(bg="#FFDAB9")
+
+    tk.Label(todo_list_win, text="Add list of works for today", font=("Helvetica", 14), fg="Green", bg="#FFDAB9").pack(pady=10)
+
+    task_var = tk.StringVar()
+    task_entry = tk.Entry(todo_list_win, textvariable=task_var, font=("Helvetica", 12), width=50)
+    task_entry.pack(pady=5)
+
+    tk.Label(todo_list_win, text="Set time", font=("Helvetica", 12), bg="#FFDAB9").pack()
+    time_var = tk.StringVar()
+    time_entry = tk.Entry(todo_list_win, textvariable=time_var, font=("Helvetica", 12), width=50)
+    time_entry.pack(pady=5)
+    
+    add_button = tk.Button(todo_list_win, text="Add Task", font=("Helvetica", 12), bg="Green", fg="white", command=lambda: (add_task(),  messagebox.showinfo("Added", "You have successfully added a task.")))
+    add_button.pack(pady=10)
+
+    delete_button = tk.Button(todo_list_win, text="Delete Task", font=("Helvetica", 12), bg="Red", fg="white", command=lambda: (delete_task(), messagebox.showinfo("Deleted", "You have successfully deleted a task.")))
+    delete_button.pack(pady=10)
+
+    listbox = tk.Listbox(todo_list_win, font=("Helvetica", 12), bg="Light Blue", fg="Black", height=20, width=100)
+    
+    # Fetch tasks from database and add them to the listbox
+    conn = sqlite3.connect('MyJournal.db')
+    cur = conn.cursor()
+    cur.execute("SELECT task, time FROM todo_list")
+    tasks = cur.fetchall()
+    for i, (task, time) in enumerate(tasks, 1):
+        listbox.insert(tk.END, f"{i}. {time} - {task}")
+    conn.close()
+    
+    listbox.pack(pady=10)
+
+    back_button = tk.Button(todo_list_win, text=" Back ", font=("Helvetica", 12), bg="Green", fg="white", command=todo_list_win.destroy)
+    back_button.pack(side=tk.LEFT, anchor='sw', padx=250, pady=25)
+
+    exit_button = tk.Button(todo_list_win, text="  Exit  ", font=("Helvetica", 12), bg="Dark Red", fg="white", command=root.destroy)
+    exit_button.pack(side=tk.RIGHT, anchor='se', padx=250, pady=25)
+
+
+root = tk.Tk()
+root.title("Journal Application")
+root.attributes('-fullscreen', True)
+root.configure(bg= "#E6E6FA")
+
+# None indicates the fields/entries are empty
+email_var = None
+phone_var = None
+username_var = None
+password_var = None
+login_username_var = None
+login_password_var = None
+
+def initialize_variables():
+    global email_var, phone_var, username_var, password_var, login_username_var, login_password_var
+    email_var = tk.StringVar()
+    phone_var = tk.StringVar()
+    username_var = tk.StringVar()
+    password_var = tk.StringVar()
+    login_username_var = tk.StringVar()
+    login_password_var = tk.StringVar()
+
+initialize_variables()
+#Using widgets for registration window/ root window
+tk.Label(root, text="MyJournal", font=("Brush Script MT", 34, "bold"), fg="Purple", bg="#E6E6FA").pack(pady=20)
+tk.Label(root, text="Join us and start journaling today!", font=("Footlight MT Light", 16), fg="Blue", bg="#E6E6FA").pack(pady=10)
+tk.Label(root, text="Register Here ⬇️", font=("Helvetica", 12), bg="Black", fg="Yellow").pack(pady=10)
+
+tk.Label(root, text="Email:", font=("Helvetica", 12), bg="#E6E6FA").pack()
+tk.Entry(root, textvariable=email_var, width=30, font=("Helvetica", 12)).pack(pady=10)
+
+tk.Label(root, text="Phone No:", font=("Helvetica", 12), bg="#E6E6FA").pack()
+tk.Entry(root, textvariable=phone_var, width=30, font=("Helvetica", 12)).pack(pady=15)
+
+tk.Label(root, text="Username:", font=("Helvetica", 12), bg="#E6E6FA").pack()
+tk.Entry(root, textvariable=username_var, width=30, font=("Helvetica", 12)).pack(pady=20)
+
+tk.Label(root, text="Password:", font=("Helvetica", 12), bg="#E6E6FA").pack()
+tk.Entry(root, textvariable=password_var, width=30, show="*", font=("Helvetica", 12)).pack(pady=25)
+
+tk.Button(root, text="Sign Up", bg="blue", fg="white", font=("Helvetica", 12), command=register_user).pack(pady=20)
+tk.Button(root, text="Already Registered?", font=("Helvetica", 10), command=open_login_window).pack()
+
+tk.Button(root, text=" Back ", font=("Helvetica", 12), bg="Green", fg="white", command=root.iconify).pack(side=tk.LEFT, anchor='sw', padx=250, pady=25)
+tk.Button(root, text="  Exit  ", font=("Helvetica", 12), bg="Dark Red", fg="white", command=root.destroy).pack(side=tk.RIGHT, anchor='se', padx=250, pady=25)
+
+create_user_table()
+create_entry_table()
+root.mainloop()
