@@ -1,5 +1,5 @@
 # MyJournal: Personal Journal & To-Do List App
-MyJournal is a Python-based desktop application that allows users to manage journal entries and to-do lists. Built with Tkinter for the GUI and SQLite for data storage, this app lets users register, log in, write journal entries with custom background colors, and manage tasks with set reminders.
+MyJournal is a Python-based desktop application that allows users to manage journal entries and to-do lists. Built with Tkinter for the GUI and SQLite for data storage, this app lets users register, log in, write journal entries with custom background colors, and manage tasks.
 
 **Features:**
 
